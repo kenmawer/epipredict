@@ -98,9 +98,7 @@ arx_args_list <- function(
 
   max_lags <- max(lags)
 
-  list(lags = .lags, ahead = as.integer(ahead),
-       min_train_window = min_train_window,
-       levels = levels, intercept = intercept,
-       symmetrize = symmetrize, nonneg = nonneg,
-       max_lags = max_lags)
+  enlist(
+    lags = .lags, ahead = as.integer(ahead), min_train_window, levels,
+    intercept, symmetrize, nonneg, max_lags)
 }

@@ -34,8 +34,19 @@ smooth_arx_forecaster <- function(x, y, key_vars, time_value,
   dat <- create_lags_and_leads(x, y, lags, ahead, time_value, keys)
   if (intercept) dat$x0 <- 1
 
-  H <- poly(ahead, degree = degree, simple = TRUE)
+  H <- cbind(1 / sqrt(length(ahead)),
+             poly(ahead, degree = degree - 1, simple = TRUE))
   trans <- smooth_and_fit(dat, H, kronecker_version)
+
+  if (kronecker_version) {
+    if (is.null(keys)) keys <- data.frame(y_ahead = trans$dat$y_ahead)
+    else {
+      keys <- dplyr::bind_cols(
+        y_ahead = trans$dat$y_ahead,
+        keys[rep(seq_len(nrow(keys)), length(ahead)), ])
+      time_value <- rep(time_value, length(ahead))
+    }
+  }
 
   point <- make_predictions(trans$obj, trans$dat, time_value, keys) %>%
     tcrossprod(H) %>%
@@ -109,13 +120,11 @@ smooth_arx_args_list <- function(
   if (length(ahead) == 1)
     stop("Smoothing is immaterial for only a single ahead. You\n",
          "may want `arx_forecaster()` instead.")
-  if (degree >= length(ahead))
+  if (degree > length(ahead))
     stop("Smoothing requires requesting fewer degrees of freedom then ahead values.")
 
-  list(lags = .lags, ahead = as.integer(ahead), degree = as.integer(degree),
-       min_train_window = min_train_window,
-       kronecker_version = kronecker_version,
-       levels = levels, intercept = intercept,
-       symmetrize = symmetrize, nonneg = nonneg,
-       max_lags = max_lags)
+  enlist(
+    lags = .lags, ahead = as.integer(ahead), degree = as.integer(degree),
+    min_train_window, kronecker_version, levels, intercept, symmetrize, nonneg,
+    max_lags)
 }

@@ -10,7 +10,7 @@ make_predictions <- function(obj, dat, time_value, key_vars = NULL) {
 
   dat <- dplyr::left_join(time_keys, dat, by = common_names) %>%
     dplyr::group_by(dplyr::across(dplyr::all_of(key_names))) %>%
-    tidyr::fill(dplyr::starts_with("x"))
+    tidyr::fill(dplyr::matches("^x\\d+"))
   ## DJM: Old version below. Replaced with tidyr version above
   #data.table::setDT(dat) # Convert to a data.table object by reference
   #cols <- setdiff(names(dat), common_names)
