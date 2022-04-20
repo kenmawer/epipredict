@@ -36,39 +36,9 @@ smooth_arx_forecaster <- function(x, y, key_vars, time_value,
 
   H <- cbind(1 / sqrt(length(ahead)),
              poly(ahead, degree = degree - 1, simple = TRUE))
-  trans <- smooth_and_fit(dat, H, kronecker_version)
 
-  if (kronecker_version) {
-    if (is.null(keys)) keys <- data.frame(y_ahead = trans$dat$y_ahead)
-    else {
-      keys <- dplyr::bind_cols(
-        y_ahead = trans$dat$y_ahead,
-        keys[rep(seq_len(nrow(keys)), length(ahead)), ])
-      time_value <- rep(time_value, length(ahead))
-    }
-  }
-
-  point <- make_predictions(trans$obj, trans$dat, time_value, keys) %>%
-    tcrossprod(H) %>%
-    as.data.frame()
-
-  r <- residuals(trans$obj) %>%
-    tcrossprod(H) %>%
-    as.data.frame() %>%
-    magrittr::set_names(ahead)
-
-  q <- purrr::map2_dfr(
-    r, point, ~ residual_quantiles(.x, .y, levels, symmetrize), .id = "ahead"
-  ) %>% mutate(ahead = as.integer(ahead))
-
-  if (nonneg) q <- dplyr::mutate(q, dplyr::across(!ahead, ~ pmax(.x, 0)))
-
-  return(
-    purrr::map_dfr(ahead, ~ distinct_keys) %>%
-      dplyr::select(!any_of(".dump")) %>%
-      dplyr::bind_cols(q) %>%
-      dplyr::relocate(ahead)
-  )
+  if (kronecker_version) return(kronecker_arx(dat, H, time_value, keys, distinct_keys, args))
+  else return(smooth_arx(dat, H, time_value, keys, distinct_keys, args))
 }
 
 
@@ -127,4 +97,73 @@ smooth_arx_args_list <- function(
     lags = .lags, ahead = as.integer(ahead), degree = as.integer(degree),
     min_train_window, kronecker_version, levels, intercept, symmetrize, nonneg,
     max_lags)
+}
+
+
+smooth_arx <- function(dat, H, time_value, keys, distinct_keys, args) {
+
+  assign_arg_list(args)
+
+  # smooth and fit
+  dat <- df_mat_mul(dat, H, "y", matches("^y\\d+"))
+  ny <- grab_names(dat, matches("^y\\d+"))
+  nx <- grab_names(dat, matches("^x\\d+"))
+  form <- stats::as.formula(paste(
+    "cbind(", paste(ny, collapse = ","), ") ~ ", # multivariate y
+    paste(nx, collapse = "+"), "+ 0"))
+  obj <- stats::lm(form, data = dat)
+
+  point <- make_predictions(obj, dat, time_value, keys) %>%
+    tcrossprod(H) %>%
+    as.data.frame()
+
+  r <- residuals(obj) %>%
+    tcrossprod(H) %>%
+    as.data.frame() %>%
+    magrittr::set_names(ahead)
+
+  q <- purrr::map2_dfr(
+    r, point, ~ residual_quantiles(.x, .y, levels, symmetrize), .id = "ahead"
+  ) %>% mutate(ahead = as.integer(ahead))
+
+  if (nonneg) q <- dplyr::mutate(q, dplyr::across(!ahead, ~ pmax(.x, 0)))
+
+  return(
+    purrr::map_dfr(ahead, ~ distinct_keys) %>%
+      dplyr::select(!any_of(".dump")) %>%
+      dplyr::bind_cols(q) %>%
+      dplyr::relocate(ahead)
+  )
+}
+
+kronecker_arx <- function(dat, H, time_value, keys, distinct_keys, args) {
+
+  assign_arg_list(args)
+  time_value <- rep(time_value, length(ahead))
+
+  # smooth and fit
+  xmat <- dat %>%
+    dplyr::select(matches("^x\\d+")) %>%
+    as.matrix()
+  dat <- dat %>%
+    dplyr::select(! matches("^x\\d+")) %>%
+    tidyr::pivot_longer(
+      matches("^y\\d+"), names_to = "y_ahead", values_to = "all_y")
+  xtilde <- kronecker(H, xmat)
+  nx <- paste0("x", 1:ncol(xtilde))
+  names(xtilde = nx)
+  dat <- dplyr::bind_cols(dat, as.data.frame(xtilde))
+  form <- stats::as.formula(
+    paste("y_all ~ ", paste(nx, collapse = "+"), "+ 0"))
+  obj <- stats::lm(form, data = dat)
+
+  if (is.null(keys)) keys <- data.frame(y_ahead = dat$y_ahead)
+  else {
+    keys <- dplyr::bind_cols(
+      y_ahead = dat$y_ahead,
+      keys[rep(seq_len(nrow(keys)), length(ahead)), ])
+  }
+
+  point <- make_predictions(obj, dat, time_value, keys)
+  r <- residuals(obj)
 }
