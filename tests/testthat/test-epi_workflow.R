@@ -1,10 +1,9 @@
 library(dplyr)
-jhu <- jhu_csse_daily_subset %>%
-  filter(time_value > "2021-08-01") %>%
-  select(geo_value:death_rate_7d_av) %>%
-  rename(case_rate = case_rate_7d_av, death_rate = death_rate_7d_av)
+library(parsnip)
 
-r <- epi_recipe(jhu) %>%
+data <- filter(case_death_rate_subset, time_value > "2021-08-01")
+
+r <- epi_recipe(data) %>%
   step_epi_lag(death_rate, lag = c(0, 7, 14)) %>%
   step_epi_ahead(death_rate, ahead = 7) %>%
   step_epi_lag(case_rate, lag = c(0, 7, 14)) %>%
@@ -22,8 +21,8 @@ test_that("is_epi_workflow works properly", {
   expect_false(is_epi_workflow(workflows::workflow(r)))
 })
 
-test_that("predict.epi_workflow works properly", {
-  expect_error(predict(wf))
+test_that("predict.epi_workflow won't work on an unfitted workflow", {
+  expect_error(predict.epi_workflow(wf))
 })
 
 test_that("grab_forged_keys works properly", {
