@@ -16,7 +16,7 @@
 }
 \arguments{
 \item{object}{An epi_workflow that has been fit by
-\code{\link[workflows:fit.workflow]{workflows::fit.workflow()}}}
+\code{\link[workflows:fit-workflow]{workflows::fit.workflow()}}}
 
 \item{new_data}{A data frame containing the new predictors to preprocess
 and predict on}
