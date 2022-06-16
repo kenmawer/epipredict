@@ -1,5 +1,6 @@
 library(dplyr)
 library(parsnip)
+library(tidymodels)
 
 data <- filter(case_death_rate_subset, time_value > "2021-08-01")
 
@@ -10,7 +11,10 @@ r <- epi_recipe(data) %>%
   step_naomit(all_predictors()) %>%
   step_naomit(all_outcomes(), skip = TRUE)
 
-wf <- epi_workflow(r, linear_reg())
+# Something is going wrong below!!!
+my_fit <- epi_workflow(r, linear_reg()) %>%
+  fit(data)
+
 
 test_that("epi_workflow is indeed a workflow",{
   expect_true(inherits(wf,"workflow"))
