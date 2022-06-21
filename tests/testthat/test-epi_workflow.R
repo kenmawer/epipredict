@@ -11,17 +11,15 @@ r <- epi_recipe(data) %>%
   step_naomit(all_predictors()) %>%
   step_naomit(all_outcomes(), skip = TRUE)
 
-# Something is going wrong below!!!
 my_fit <- epi_workflow(r, linear_reg()) %>%
   fit(data)
 
-
 test_that("epi_workflow is indeed a workflow",{
-  expect_true(inherits(wf,"workflow"))
+  expect_true(inherits(my_fit,"workflow"))
 })
 
 test_that("is_epi_workflow properly checks if a workflow is an epi_workflow", {
-  expect_true(is_epi_workflow(wf))
+  expect_true(is_epi_workflow(my_fit))
   expect_false(is_epi_workflow(workflows::workflow(r)))
 })
 
